@@ -25,35 +25,53 @@ namespace DoubenAPIReader
         /// <param name="e">e</param>
         private void btnSearch_Click(object sender, EventArgs e)
         {
+            Thread thread = new Thread(new ThreadStart(ThreadSearch));
+            thread.IsBackground = true;
+            thread.Start();
+        }
+
+        private void ThreadSearch()
+        {
+            this.Invoke(new Action(SearchBooks));
+        }
+
+        /// <summary>
+        /// 搜索图书信息
+        /// </summary>
+        private void SearchBooks()
+        {
             try
             {
                 if (!string.IsNullOrEmpty(this.tbSearch.Text))
                 {
                     this.dgvBookInfo.Visible = true;
                     List<Books> list = new List<Books>();
-                    GetDataSource ds = new GetDataSource();
-                    JObject reader = JObject.Parse(ds.GetTagsInfo(this.tbSearch.Text));//使用Object读json字符串
-                    var temp = from file in reader["books"].Children()
-                               select file;
-                    int item = temp.Count();
-                    foreach (var tempFile in temp)
+                    this.Invoke((MethodInvoker)delegate
                     {
-                        Books book = new Books();
-                        book.Title = tempFile["title"].ToString().Trim();
-                        if (tempFile["author"].ToString().Trim()=="[]")
+                        GetDataSource ds = new GetDataSource();
+                        JObject reader = JObject.Parse(ds.GetTagsInfo(this.tbSearch.Text));//使用Object读json字符串
+
+                        var temp = from file in reader["books"].Children()
+                                   select file;
+                        foreach (var tempFile in temp)
                         {
-                            book.Author = tempFile["author"].ToString().Trim();
+                            Books book = new Books();
+                            book.Title = tempFile["title"].ToString().Trim();
+                            if (tempFile["author"].ToString().Trim() == "[]")
+                            {
+                                book.Author = tempFile["author"].ToString().Trim();
+                            }
+                            else
+                            {
+                                book.Author = tempFile["author"][0].ToString().Trim();
+                            }
+                            book.Url = tempFile["url"].ToString().Trim();
+                            book.Pages = tempFile["pages"].ToString().Trim();
+                            book.Price = tempFile["price"].ToString().Trim();
+                            book.Index = list.Count + 1;
+                            list.Add(book);
                         }
-                        else
-                        {
-                            book.Author = tempFile["author"][0].ToString().Trim();
-                        }
-                        book.Url = tempFile["url"].ToString().Trim();
-                        book.Pages = tempFile["pages"].ToString().Trim();
-                        book.Price = tempFile["price"].ToString().Trim();
-                        book.Index = list.Count + 1;
-                        list.Add(book);
-                    }
+                    });
                     if (list.Count == 0)
                     {
                         this.dgvBookInfo.Visible = false;
@@ -61,7 +79,10 @@ namespace DoubenAPIReader
                     }
                     else
                     {
-                        this.dgvBookInfo.DataSource = list;//数据绑定到datagridview
+                        this.Invoke((MethodInvoker)delegate
+                        {
+                            this.dgvBookInfo.DataSource = list;//数据绑定到datagridview   
+                        });
                     }
                 }
                 else
@@ -124,7 +145,7 @@ namespace DoubenAPIReader
                     }
                 }
             }
-            catch(Exception)
+            catch (Exception)
             {
                 MessageBox.Show("发生异常，请检查！");
             }
